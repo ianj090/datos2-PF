@@ -81,9 +81,9 @@ def homepage():
     return render_template('profile.html')
 
 # Create / Edit Profile information
-@app.route('/create')
-def create():
-    return render_template('createProfile.html')
+@app.route('/edit')
+def edit():
+    return render_template('editProfile.html')
 
 
 if __name__ == '__main__':
