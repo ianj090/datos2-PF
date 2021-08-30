@@ -108,10 +108,18 @@ def login():
 def homepage():
     # if method is post, search for user in DB using form, if method is get use flask session variable
     if request.method == "POST":
-        user = User.get(User.username == request.form['searchUsername'])
-        # return render_template('profile.html')
+        try:
+            user = User.get(User.username == request.form['searchUsername'])
+            if user.username == session['username']:
+                current = True
+            else:
+                current = False
+        except:
+            flash("User does not exist")
+            return redirect("/profile")
     else:
         user = get_current_user()
+        current = True
 
     return render_template('profile.html',
         username = user.username,
@@ -122,7 +130,8 @@ def homepage():
         birthday = user.birthday,
         occupation = user.occupation,
         mobile_number = user.mobile_number,
-        phone_number = user.phone_number
+        phone_number = user.phone_number,
+        current = current
     )
 
 # Create / Edit Profile information
