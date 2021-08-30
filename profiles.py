@@ -22,6 +22,7 @@ class BaseModel(Model):
 class User(BaseModel):
     username = CharField(unique=True)
     password = CharField()
+    description = CharField()
     email = CharField()
     firstName = CharField()
     lastName = CharField()
@@ -83,6 +84,7 @@ def login():
                     user = User.create(
                         username = request.form['inputUsername'],
                         password = md5((request.form['inputPassword']).encode('utf-8')).hexdigest(),
+                        description = "",
                         email = "",
                         firstName = "",
                         lastName = "",
@@ -123,6 +125,7 @@ def homepage():
 
     return render_template('profile.html',
         username = user.username,
+        description = user.description,
         email = user.email,
         firstName = user.firstName,
         lastName = user.lastName,
@@ -141,6 +144,7 @@ def edit():
         current_user = get_current_user()
         query = User.update(
             email = request.form['editEmail'],
+            description = request.form['editDescription'],
             firstName = request.form['editFirstName'],
             lastName = request.form['editLastName'],
             country = request.form['editCountry'],
@@ -152,7 +156,20 @@ def edit():
 
         return redirect('/profile')
 
-    return render_template('editProfile.html')
+    user = get_current_user()
+
+    return render_template('editProfile.html',
+        # username = user.username,
+        description = user.description,
+        email = user.email,
+        firstName = user.firstName,
+        lastName = user.lastName,
+        country = user.country,
+        birthday = user.birthday,
+        occupation = user.occupation,
+        mobile_number = user.mobile_number,
+        phone_number = user.phone_number
+    )
 
 
 if __name__ == '__main__':
