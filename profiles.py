@@ -2,15 +2,16 @@ from flask import Flask, redirect, g, request, flash, render_template, session
 from peewee import * # ORM for Sqlite
 from hashlib import md5 # Encoder for password
 
-# Set workspace values
-DATABASE = 'profiles.db'
-DEBUG = True
-SECRET_KEY = 'EfWpZjEJVD1UOyUCau50lQqzPDzMDZcpun0gB4NuOdw'
+# Set workspace values / app config
+DATABASE = 'profiles.db' # Database name for sqlite3
+DEBUG = True # debug flag to print error information
+SECRET_KEY = 'EfWpZjEJVD1UOyUCau50lQqzPDzMDZcpun0gB4NuOdw' # Used for cookies / session variables
 
 app = Flask(__name__)
-app.config.from_object(__name__)
+app.config.from_object(__name__) # loads workspace values
 
 # Sqlite connection (using peewee ORM from now on, not Sqlite directly)
+# Peewee queries docs: https://docs.peewee-orm.com/en/latest/peewee/querying.html 
 database = SqliteDatabase(DATABASE)
 
 # Parent Class containing metadata (in case other classes are used)
@@ -18,10 +19,10 @@ class BaseModel(Model):
     class Meta:
         database = database
 
-# Class for users with profiles, contains all value to be displayed
+# Class for users with profiles, contains all values to be displayed
 class User(BaseModel):
-    username = CharField(unique=True)
-    password = CharField()
+    username = CharField(unique=True) # primary key
+    password = CharField() 
     description = CharField()
     email = CharField()
     firstName = CharField()
@@ -32,22 +33,22 @@ class User(BaseModel):
     mobile_number = CharField()
     phone_number = CharField()
 
-# Creates table in database
+# Creates table in database, ignored if it exists
 def create_table():
     with database:
         database.create_tables([User])
 
-# Set Flask session variable
+# Set Flask session variable, used to record which user is currently signed in
 def auth_user(user):
     session['logged_in'] = True
     session['username'] = user.username
 
-# get the user from the session
+# gets the user from the current session
 def get_current_user():
     if session.get('logged_in'):
         return User.get(User.username == session['username'])
 
-# Open and close database connection with every request
+# Open and close database connection with every request (peewee best practices)
 @app.before_request
 def before_request():
     g.db = database
@@ -66,21 +67,24 @@ def initial():
 # Start page for new connection, sign in with username and password (if user does not exists it gets created) and goes to '/profile' path through html form.
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # Submit button calls the same route, handle request.form through POST method.
     if request.method == 'POST':
         # Checks if username exists and if password matches.
         try:
+            # Encode password into DB
             pw_hash = md5(request.form['inputPassword'].encode('utf-8')).hexdigest()
             user = User.get(
                 (User.username == request.form['inputUsername']) &
                 (User.password == pw_hash))
             auth_user(user)
             
-            return redirect('/profile')
+            return redirect('/profile') # Returns user's profile
 
         # If user does not exist then it creates the new user.
         except:
             try:
-                with database.atomic():
+                with database.atomic(): # Peewee best practice
+                    # Create user with empty fields
                     user = User.create(
                         username = request.form['inputUsername'],
                         password = md5((request.form['inputPassword']).encode('utf-8')).hexdigest(),
@@ -99,9 +103,9 @@ def login():
 
                 return redirect('/profile')
 
-            # If user exists and password does not match, reload the login page.
+            # If user exists and password does not match, reload the login page and show message.
             except:
-                flash("That username is already taken")
+                flash("That username is already taken") # Flask method to show messages to user (errors, other feedback)
                 return render_template('login.html')
         
     return render_template('login.html')
@@ -111,7 +115,10 @@ def homepage():
     # if method is post, search for user in DB using form, if method is get use flask session variable
     if request.method == "POST":
         try:
+            # Find user in db
             user = User.get(User.username == request.form['searchUsername'])
+
+            # Checks if user is the current session user
             if user.username == session['username']:
                 current = True
             else:
@@ -140,7 +147,9 @@ def homepage():
 # Create / Edit Profile information
 @app.route('/edit', methods=['GET', 'POST'])
 def edit():
+    # Submit button calls itself, if POST, updates user info.
     if request.method == "POST":
+        # Finds user and updates info, returns number of rows affected for debugging purposes
         current_user = get_current_user()
         query = User.update(
             email = request.form['editEmail'],
@@ -173,5 +182,5 @@ def edit():
 
 
 if __name__ == '__main__':
-    create_table()
+    create_table() # Creates table in DB if it does not exist
     app.run()
