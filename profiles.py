@@ -1,6 +1,7 @@
 from flask import Flask, redirect, g, request, flash, render_template, session
 from peewee import * # ORM for Sqlite
 from hashlib import md5 # Encoder for password
+import memcache # Cache
 
 # Set workspace values / app config
 DATABASE = 'profiles.db' # Database name for sqlite3
@@ -13,6 +14,10 @@ app.config.from_object(__name__) # loads workspace values
 # Sqlite connection (using peewee ORM from now on, not Sqlite directly)
 # Peewee queries docs: https://docs.peewee-orm.com/en/latest/peewee/querying.html 
 database = SqliteDatabase(DATABASE)
+
+# Start cache connection
+client = memcache.Client([('127.0.0.1', 11211)])
+cacheTime = 10
 
 # Parent Class containing metadata (in case other classes are used)
 class BaseModel(Model):
@@ -48,6 +53,11 @@ def get_current_user():
     if session.get('logged_in'):
         return User.get(User.username == session['username'])
 
+def cache_user(user):
+    print(user)
+    client.set("current_user", user, time=cacheTime)
+    print(client.get("current_user"))
+
 # Open and close database connection with every request (peewee best practices)
 @app.before_request
 def before_request():
@@ -77,6 +87,7 @@ def login():
                 (User.username == request.form['inputUsername']) &
                 (User.password == pw_hash))
             auth_user(user)
+            cache_user(user)
             
             return redirect('/profile') # Returns user's profile
 
@@ -98,8 +109,9 @@ def login():
                         mobile_number = "",
                         phone_number = ""
                     )
-                
                 auth_user(user)
+                cache_user(user)
+
 
                 return redirect('/profile')
 
@@ -127,7 +139,15 @@ def homepage():
             flash("User does not exist")
             return redirect("/profile")
     else:
-        user = get_current_user()
+        # Checks if user exists
+        try:
+            user = client.get("current_user")
+            if user == None:
+                user = get_current_user()
+                print("from DB")
+        except:
+            return redirect('/login')
+
         current = True
 
     return render_template('profile.html',
@@ -150,7 +170,11 @@ def edit():
     # Submit button calls itself, if POST, updates user info.
     if request.method == "POST":
         # Finds user and updates info, returns number of rows affected for debugging purposes
-        current_user = get_current_user()
+        current_user = client.get("current_user")
+        if current_user == None:
+            current_user = get_current_user()
+            print("from DB")
+
         query = User.update(
             email = request.form['editEmail'],
             description = request.form['editDescription'],
@@ -163,9 +187,26 @@ def edit():
             phone_number = request.form['editPhoneNumber']
         ).where(User.username == current_user.username).execute()
 
+        # Replace cached user with new data
+        user = get_current_user()
+        cached_user = client.get("current_user") 
+        if cached_user == None:
+            cache_user(user)
+        else:
+            client.replace("current_user", user, time=cacheTime)
+
+
+
         return redirect('/profile')
 
-    user = get_current_user()
+    # Checks if user exists
+    try:
+        user = client.get("current_user")
+        if user == None:
+            user = get_current_user()
+            print("from DB")
+    except:
+        return redirect('/login')
 
     return render_template('editProfile.html',
         # username = user.username,
@@ -180,6 +221,28 @@ def edit():
         phone_number = user.phone_number
     )
 
+@app.route('/delete')
+def delete():
+    # If user session does not exist, go to login.
+    try:
+        user = client.get("current_user")
+        if user == None:
+            user = get_current_user()
+            print("from DB")
+    except:
+        return redirect('/login')
+    
+    # If user does not exist in table, go back to profile
+    try:
+        user.delete_instance()
+    except:
+        flash('Could not remove user')
+        return redirect('/profile')
+
+    # If all passes go to login.
+    flash("Deleted user")
+    return redirect('/login')
+        
 
 if __name__ == '__main__':
     create_table() # Creates table in DB if it does not exist
