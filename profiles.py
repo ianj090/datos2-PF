@@ -28,6 +28,7 @@ class BaseModel(Model):
 class User(BaseModel):
     username = CharField(unique=True) # primary key
     password = CharField() 
+    profilepic = CharField()
     description = CharField()
     email = CharField()
     firstName = CharField()
@@ -99,6 +100,7 @@ def login():
                     user = User.create(
                         username = request.form['inputUsername'],
                         password = md5((request.form['inputPassword']).encode('utf-8')).hexdigest(),
+                        profilepic = "https://d3ipks40p8ekbx.cloudfront.net/dam/jcr:3a4e5787-d665-4331-bfa2-76dd0c006c1b/user_icon.png",
                         description = "",
                         email = "",
                         firstName = "",
@@ -152,6 +154,7 @@ def homepage():
 
     return render_template('profile.html',
         username = user.username,
+        profilepic = user.profilepic,
         description = user.description,
         email = user.email,
         firstName = user.firstName,
@@ -175,17 +178,31 @@ def edit():
             current_user = get_current_user()
             print("from DB")
 
-        query = User.update(
-            email = request.form['editEmail'],
-            description = request.form['editDescription'],
-            firstName = request.form['editFirstName'],
-            lastName = request.form['editLastName'],
-            country = request.form['editCountry'],
-            birthday = request.form['editBirthday'],
-            occupation = request.form['editOccupation'],
-            mobile_number = request.form['editMobileNumber'],
-            phone_number = request.form['editPhoneNumber']
-        ).where(User.username == current_user.username).execute()
+        if (request.form['editProfilePic'] != ""):
+            query = User.update(
+                profilepic = request.form['editProfilePic'],
+                email = request.form['editEmail'],
+                description = request.form['editDescription'],
+                firstName = request.form['editFirstName'],
+                lastName = request.form['editLastName'],
+                country = request.form['editCountry'],
+                birthday = request.form['editBirthday'],
+                occupation = request.form['editOccupation'],
+                mobile_number = request.form['editMobileNumber'],
+                phone_number = request.form['editPhoneNumber']
+            ).where(User.username == current_user.username).execute()
+        else:
+           query = User.update(
+                email = request.form['editEmail'],
+                description = request.form['editDescription'],
+                firstName = request.form['editFirstName'],
+                lastName = request.form['editLastName'],
+                country = request.form['editCountry'],
+                birthday = request.form['editBirthday'],
+                occupation = request.form['editOccupation'],
+                mobile_number = request.form['editMobileNumber'],
+                phone_number = request.form['editPhoneNumber']
+            ).where(User.username == current_user.username).execute() 
 
         # Replace cached user with new data
         user = get_current_user()
@@ -210,6 +227,7 @@ def edit():
 
     return render_template('editProfile.html',
         # username = user.username,
+        profilepic = user.profilepic,
         description = user.description,
         email = user.email,
         firstName = user.firstName,

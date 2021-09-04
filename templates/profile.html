@@ -26,7 +26,7 @@
 </div>
 
 {% for mesg in get_flashed_messages() %}
-    <h3 style="color:#db0707; text-align: center;">{{ mesg }}</h3><br>
+    <h3 style="color:#ac0606; text-align: center;">{{ mesg }}</h3><br>
 {% endfor %}
 
 <div class="container bootstrap snippets bootdey">
@@ -35,7 +35,7 @@
       <div class="panel">
           <div class="user-heading round">
               <a href="#">
-                  <img src="https://bootdey.com/img/Content/avatar/avatar3.png" alt="">
+                  <img src="{{ profilepic }}" alt="profile picture">
               </a>
               <h1>{{ username }}</h1>
               <p>{{ email }}</p>
@@ -192,7 +192,7 @@ body {
 }
 
 .profile-nav .user-heading {
-    background: #FA4251;
+    background: #272f83;
     color: #fff;
     border-radius: 4px 4px 0 0;
     -webkit-border-radius: 4px 4px 0 0;
@@ -247,7 +247,7 @@ body {
 
 .profile-nav ul > li > a:hover, .profile-nav ul > li > a:focus, .profile-nav ul li.active  a {
     background: #f8f7f5 !important;
-    border-left: 5px solid #FA4251;
+    border-left: 5px solid #272f83;
     color: #89817f !important;
 }
 
@@ -286,7 +286,7 @@ body {
 }
 
 .bio-graph-heading {
-    background: #FA4251;
+    background: #272f83;
     color: #fff;
     text-align: center;
     font-style: italic;
@@ -555,7 +555,7 @@ ul.summary-list > li:last-child  {
 /* Add a background color to the top navigation bar */
 .topnav {
   overflow: hidden;
-  background-color: #FA4251;
+  background-color: #3490c2;
 }
 
 /* Style the links inside the navigation bar */
