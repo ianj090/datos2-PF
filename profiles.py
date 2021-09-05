@@ -2,6 +2,7 @@ from flask import Flask, redirect, g, request, flash, render_template, session
 from peewee import * # ORM for Sqlite
 from hashlib import md5 # Encoder for password
 import memcache # Cache
+import requests
 
 # Set workspace values / app config
 DATABASE = 'profiles.db' # Database name for sqlite3
@@ -55,9 +56,51 @@ def get_current_user():
         return User.get(User.username == session['username'])
 
 def cache_user(user):
-    print(user)
     client.set("current_user", user, time=cacheTime)
-    print(client.get("current_user"))
+
+def generate_users():
+    body = {
+        'token': '6tu2dks70riHqBKPIrDtTA',
+        'data': {
+            'username': 'name',
+            'password': 'personPassword',
+            'profilepic': 'personAvatar',
+            'description': 'stringShort',
+            'email': 'internetEmail',
+            'firstName': 'nameFirst',
+            'lastName': 'nameLast',
+            'country': 'addressCountry',
+            'birthday': 'dateDOB',
+            'occupation': 'personTitle',
+            'mobile_number': 'phoneMobile',
+            'phone_number': 'phoneHome',
+            '_repeat': 10 # Max for free tier of api plan
+        }
+    }
+
+    r = requests.post('https://app.fakejson.com/q', json = body)
+    return r
+
+def create_user(user):
+    try:
+        with database.atomic(): # Peewee best practice
+            test = User.create(
+                username = user['username'],
+                password = md5((user['password']).encode('utf-8')).hexdigest(),
+                profilepic = user['profilepic'],
+                description = user['description'],
+                email = user['email'],
+                firstName = user['firstName'],
+                lastName = user['lastName'],
+                country = user['country'],
+                birthday = user['birthday'],
+                occupation = user['occupation'],
+                mobile_number = user['mobile_number'],
+                phone_number = user['phone_number']
+            )
+            print(test)
+    except:
+        pass
 
 # Open and close database connection with every request (peewee best practices)
 @app.before_request
@@ -264,4 +307,13 @@ def delete():
 
 if __name__ == '__main__':
     create_table() # Creates table in DB if it does not exist
+    try:
+        data = generate_users().json() # Creates random users to populate DB through api
+        print(data)
+        # print(data['username'])
+        for user in data:
+            for user_item in user.items():
+                create_user(user)
+    except:
+        pass
     app.run()
