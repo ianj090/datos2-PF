@@ -2,12 +2,14 @@ from flask import Flask, redirect, g, request, flash, render_template, session
 from peewee import * # ORM for Sqlite
 from hashlib import md5 # Encoder for password
 import memcache # Cache
-import requests
+import requests # api calls
+import os # random string method
+import random
 
 # Set workspace values / app config
 DATABASE = 'profiles.db' # Database name for sqlite3
 DEBUG = True # debug flag to print error information
-SECRET_KEY = 'EfWpZjEJVD1UOyUCau50lQqzPDzMDZcpun0gB4NuOdw' # Used for cookies / session variables
+SECRET_KEY = os.urandom(12) # Used for cookies / session variables
 
 app = Flask(__name__)
 app.config.from_object(__name__) # loads workspace values
@@ -18,7 +20,7 @@ database = SqliteDatabase(DATABASE)
 
 # Start cache connection
 client = memcache.Client([('127.0.0.1', 11211)])
-cacheTime = 10
+cacheTime = 60
 
 # Parent Class containing metadata (in case other classes are used)
 class BaseModel(Model):
@@ -58,13 +60,16 @@ def auth_user(user):
 def get_current_user():
     if session.get('logged_in'):
         return User.get(User.username == session['username'])
+    else:
+        raise RuntimeError
 
 def cache_user(user):
     client.set("current_user", user, time=cacheTime)
 
+# Api tokens: G5O5mE74Ey3YNnbNYMlgeg / 6tu2dks70riHqBKPIrDtTA / 4zI_9ibRnO_U3sUGrBj1fw / RM3JTB7Fz4BcLbEKvGilfQ	/ 0S-48tYujOzkcOUSLjJ3nQ / x4WffQ8A0BaqJ2X-gje7Ig
 def generate_users():
     body = {
-        'token': '6tu2dks70riHqBKPIrDtTA',
+        # 'token': 'x4WffQ8A0BaqJ2X-gje7Ig',
         'data': {
             'username': 'name',
             'password': 'personPassword',
@@ -82,7 +87,7 @@ def generate_users():
             'phone_number': 'phoneHome',
             'my_journal' : 'stringLong',
             'bg': 'colorHEX',
-            '_repeat': 10 # Max for free tier of api plan
+            '_repeat': 2 # Max for free tier of api plan
         }
     }
 
@@ -90,29 +95,26 @@ def generate_users():
     return r
 
 def create_user(user):
-    try:
-        with database.atomic(): # Peewee best practice
-            test = User.create(
-                username = user['username'],
-                password = md5((user['password']).encode('utf-8')).hexdigest(),
-                profilepic = user['profilepic'],
-                mood = user['mood'],
-                description = user['description'],
-                email = user['email'],
-                firstName = user['firstName'],
-                lastName = user['lastName'],
-                country = user['country'],
-                birthday = user['birthday'],
-                occupation = user['occupation'],
-                relationship_status = user['relationshipStatus'],
-                mobile_number = user['mobile_number'],
-                phone_number = user['phone_number'],
-                my_journal = user['my_journal'],
-                bg = user['bg']
-            )
-            print(test)
-    except:
-        pass
+    with database.atomic(): # Peewee best practice
+        test = User.create(
+            username = ''.join(random.sample(user['username'], len(user['username']))),
+            password = md5((user['password']).encode('utf-8')).hexdigest(),
+            profilepic = user['profilepic'],
+            mood = user['mood'],
+            description = user['description'],
+            email = user['email'],
+            firstName = user['firstName'],
+            lastName = user['lastName'],
+            country = user['country'],
+            birthday = user['birthday'],
+            occupation = user['occupation'],
+            relationship_status = user['relationship_status'],
+            mobile_number = user['mobile_number'],
+            phone_number = user['phone_number'],
+            my_journal = user['my_journal'],
+            bg = user['bg']
+        )
+        print(test)
 
 # Open and close database connection with every request (peewee best practices)
 @app.before_request
@@ -139,6 +141,7 @@ def login():
         try:
             # Encode password into DB
             pw_hash = md5(request.form['inputPassword'].encode('utf-8')).hexdigest()
+            print("yep")
             user = User.get(
                 (User.username == request.form['inputUsername']) &
                 (User.password == pw_hash))
@@ -236,10 +239,13 @@ def edit():
     # Submit button calls itself, if POST, updates user info.
     if request.method == "POST":
         # Finds user and updates info, returns number of rows affected for debugging purposes
-        current_user = client.get("current_user")
-        if current_user == None:
-            current_user = get_current_user()
-            print("from DB")
+        try:
+            current_user = client.get("current_user")
+            if current_user == None:
+                current_user = get_current_user()
+                print("from DB")
+        except:
+            return redirect('/login')
 
         if (request.form['editProfilePic'] != ""):
             query = User.update(
@@ -273,16 +279,16 @@ def edit():
                 my_journal = request.form['editJournal']
             ).where(User.username == current_user.username).execute() 
 
-
         # Replace cached user with new data
-        user = get_current_user()
-        cached_user = client.get("current_user") 
-        if cached_user == None:
-            cache_user(user)
-        else:
-            client.replace("current_user", user, time=cacheTime)
-
-
+        try:
+            user = get_current_user()
+            cached_user = client.get("current_user") 
+            if cached_user == None:
+                cache_user(user)
+            else:
+                client.replace("current_user", user, time=cacheTime)
+        except:
+            pass
 
         return redirect('/profile')
 
@@ -317,22 +323,28 @@ def editbg():
     # Submit button calls itself, if POST, updates user info.
     if request.method == "POST":
         # Finds user and updates info, returns number of rows affected for debugging purposes
-        current_user = client.get("current_user")
-        if current_user == None:
-            current_user = get_current_user()
-            print("from DB")
+        try:
+            current_user = client.get("current_user")
+            if current_user == None:
+                current_user = get_current_user()
+                print("from DB")
+        except:
+            return redirect('/login')
 
         query = User.update(
             bg = request.form['editBgprofile'],
         ).where(User.username == current_user.username).execute()
         
         # Replace cached user with new data
-        user = get_current_user()
-        cached_user = client.get("current_user") 
-        if cached_user == None:
-            cache_user(user)
-        else:
-            client.replace("current_user", user, time=cacheTime)
+        try:
+            user = get_current_user()
+            cached_user = client.get("current_user") 
+            if cached_user == None:
+                cache_user(user)
+            else:
+                client.replace("current_user", user, time=cacheTime)
+        except:
+            pass
 
         return redirect('/profile')
 
@@ -371,17 +383,17 @@ def delete():
     # If all passes go to login.
     flash("Deleted user")
     return redirect('/login')
-        
+
 
 if __name__ == '__main__':
     create_table() # Creates table in DB if it does not exist
     try:
         data = generate_users().json() # Creates random users to populate DB through api
-        print(data)
-        # print(data['username'])
         for user in data:
-            for user_item in user.items():
-                create_user(user)
+            print("user", user)
+            print(user['occupation'])
+            create_user(user)
     except:
+        print("api limit reached")
         pass
     app.run()
