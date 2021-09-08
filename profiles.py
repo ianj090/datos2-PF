@@ -30,6 +30,7 @@ class User(BaseModel):
     username = CharField(unique=True) # primary key
     password = CharField() 
     profilepic = CharField()
+    mood = CharField()
     description = CharField()
     email = CharField()
     firstName = CharField()
@@ -37,8 +38,11 @@ class User(BaseModel):
     country = CharField()
     birthday = CharField()
     occupation = CharField()
+    relationship_status = CharField()
     mobile_number = CharField()
     phone_number = CharField()
+    my_journal = CharField()
+    bg = CharField()
 
 # Creates table in database, ignored if it exists
 def create_table():
@@ -65,6 +69,7 @@ def generate_users():
             'username': 'name',
             'password': 'personPassword',
             'profilepic': 'personAvatar',
+            'mood': "Relaxed", # default mood is 'Relaxed'
             'description': 'stringShort',
             'email': 'internetEmail',
             'firstName': 'nameFirst',
@@ -72,8 +77,11 @@ def generate_users():
             'country': 'addressCountry',
             'birthday': 'dateDOB',
             'occupation': 'personTitle',
+            'relationship_status': 'personMaritalStatus',
             'mobile_number': 'phoneMobile',
             'phone_number': 'phoneHome',
+            'my_journal' : 'stringLong',
+            'bg': 'colorHEX',
             '_repeat': 10 # Max for free tier of api plan
         }
     }
@@ -88,6 +96,7 @@ def create_user(user):
                 username = user['username'],
                 password = md5((user['password']).encode('utf-8')).hexdigest(),
                 profilepic = user['profilepic'],
+                mood = user['mood'],
                 description = user['description'],
                 email = user['email'],
                 firstName = user['firstName'],
@@ -95,8 +104,11 @@ def create_user(user):
                 country = user['country'],
                 birthday = user['birthday'],
                 occupation = user['occupation'],
+                relationship_status = user['relationshipStatus'],
                 mobile_number = user['mobile_number'],
-                phone_number = user['phone_number']
+                phone_number = user['phone_number'],
+                my_journal = user['my_journal'],
+                bg = user['bg']
             )
             print(test)
     except:
@@ -144,6 +156,7 @@ def login():
                         username = request.form['inputUsername'],
                         password = md5((request.form['inputPassword']).encode('utf-8')).hexdigest(),
                         profilepic = "https://d3ipks40p8ekbx.cloudfront.net/dam/jcr:3a4e5787-d665-4331-bfa2-76dd0c006c1b/user_icon.png",
+                        mood = "Relaxed",
                         description = "",
                         email = "",
                         firstName = "",
@@ -151,8 +164,11 @@ def login():
                         country = "",
                         birthday = "",
                         occupation = "",
+                        relationship_status = "",
                         mobile_number = "",
-                        phone_number = ""
+                        phone_number = "",
+                        my_journal = "",
+                        bg = "#f1f2f7"
                     )
                 auth_user(user)
                 cache_user(user)
@@ -198,6 +214,7 @@ def homepage():
     return render_template('profile.html',
         username = user.username,
         profilepic = user.profilepic,
+        mood = user.mood,
         description = user.description,
         email = user.email,
         firstName = user.firstName,
@@ -205,8 +222,11 @@ def homepage():
         country = user.country,
         birthday = user.birthday,
         occupation = user.occupation,
+        relationship_status = user.relationship_status,
         mobile_number = user.mobile_number,
         phone_number = user.phone_number,
+        my_journal = user.my_journal,
+        bg = user.bg,
         current = current
     )
 
@@ -224,6 +244,7 @@ def edit():
         if (request.form['editProfilePic'] != ""):
             query = User.update(
                 profilepic = request.form['editProfilePic'],
+                mood = request.form['editMood'],
                 email = request.form['editEmail'],
                 description = request.form['editDescription'],
                 firstName = request.form['editFirstName'],
@@ -231,11 +252,14 @@ def edit():
                 country = request.form['editCountry'],
                 birthday = request.form['editBirthday'],
                 occupation = request.form['editOccupation'],
+                relationship_status = request.form['editRelationship_status'],
                 mobile_number = request.form['editMobileNumber'],
-                phone_number = request.form['editPhoneNumber']
+                phone_number = request.form['editPhoneNumber'],
+                my_journal = request.form['editJournal']
             ).where(User.username == current_user.username).execute()
         else:
            query = User.update(
+                mood = request.form['editMood'],
                 email = request.form['editEmail'],
                 description = request.form['editDescription'],
                 firstName = request.form['editFirstName'],
@@ -243,9 +267,12 @@ def edit():
                 country = request.form['editCountry'],
                 birthday = request.form['editBirthday'],
                 occupation = request.form['editOccupation'],
+                relationship_status = request.form['editRelationship_status'],
                 mobile_number = request.form['editMobileNumber'],
-                phone_number = request.form['editPhoneNumber']
+                phone_number = request.form['editPhoneNumber'],
+                my_journal = request.form['editJournal']
             ).where(User.username == current_user.username).execute() 
+
 
         # Replace cached user with new data
         user = get_current_user()
@@ -271,6 +298,7 @@ def edit():
     return render_template('editProfile.html',
         # username = user.username,
         profilepic = user.profilepic,
+        mood = user.mood,
         description = user.description,
         email = user.email,
         firstName = user.firstName,
@@ -278,9 +306,49 @@ def edit():
         country = user.country,
         birthday = user.birthday,
         occupation = user.occupation,
+        relationship_status = user.relationship_status,
         mobile_number = user.mobile_number,
-        phone_number = user.phone_number
+        phone_number = user.phone_number,
+        my_journal = user.my_journal
     )
+# To Just change the background of the profile
+@app.route('/editbg', methods=['GET', 'POST'])
+def editbg():
+    # Submit button calls itself, if POST, updates user info.
+    if request.method == "POST":
+        # Finds user and updates info, returns number of rows affected for debugging purposes
+        current_user = client.get("current_user")
+        if current_user == None:
+            current_user = get_current_user()
+            print("from DB")
+
+        query = User.update(
+            bg = request.form['editBgprofile'],
+        ).where(User.username == current_user.username).execute()
+        
+        # Replace cached user with new data
+        user = get_current_user()
+        cached_user = client.get("current_user") 
+        if cached_user == None:
+            cache_user(user)
+        else:
+            client.replace("current_user", user, time=cacheTime)
+
+        return redirect('/profile')
+
+    # Checks if user exists
+    try:
+        user = client.get("current_user")
+        if user == None:
+            user = get_current_user()
+            print("from DB")
+    except:
+        return redirect('/login')
+
+    return render_template('editBackground.html',
+        bg = user.bg
+    )
+
 
 @app.route('/delete')
 def delete():

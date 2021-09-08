@@ -787,129 +787,16 @@
       <div class="card card-2">
         <!-- <div class="card-heading"></div> -->
         <div class="card-body">
-          <h2 class="title">Edit Profile</h2>
-          <form action="/edit" method="POST">
+          <h2 class="title">Edit Background</h2>
+          <form action="/editbg" method="POST">
 
-            <!-- <div class="input-group">
-              <p class="input--style-2" style="color: black;">Username: </p>
-              <input value="Username" class="input--style-2" type="text" placeholder="Username" id="editUsername" name="editUsername">
-            </div> -->
             <div class="input-group">
-              <p class="input--style-2" style="color: black;">Image URL of New Profile Picture: </p>
-              <input value="" class="input--style-2" type="text" id="editProfilePic" name="editProfilePic">
-            </div>
-            <div class="input-group">
-            <p class="input--style-2" style="color: black;" >Change Moods!:</p>
-            <select value="{{ mood }}" id="editMood" name="editMood">
-              <option value="Happy">Happy</option>
-              <option value="Relaxed">Relaxed</option>
-              <option value="Indifferent">Indifferent</option>
-              <option value="Confused">Confused</option>
-              <option value="Anxious">Anxious</option>
-              <option value="Angry">Angry</option>
-            </select>
-          </div>
-            <div class="input-group">
-              <p class="input--style-2" style="color: black;">Bio Description: </p>
-              <input value="{{ description }}" class="input--style-2" type="text" placeholder="Description" id="editDescription" name="editDescription">
-            </div>
-            <div class="input-group">
-              <p class="input--style-2" style="color: black;">E-mail: </p>
-              <input value="{{ email }}" class="input--style-2" type="text" placeholder="E-mail" id="editEmail" name="editEmail">
-            </div>
-            <div class="input-group">
-              <p class="input--style-2" style="color: black;">First Name: </p>
-              <input value="{{ firstName }}" class="input--style-2" type="text" placeholder="First Name" id="editFirstName" name="editFirstName">
-            </div>
-            <div class="input-group">
-              <p class="input--style-2" style="color: black;">Last Name: </p>
-              <input value="{{ lastName }}" class="input--style-2" type="text" placeholder="Last Name" id="editLastName" name="editLastName">
-            </div>
-            <div class="input-group">
-              <p class="input--style-2" style="color: black;">Country: </p>
-              <input value="{{ country }}" class="input--style-2" type="text" placeholder="Country" id="editCountry" name="editCountry">
-            </div>
-            <div class="input-group">
-              <p class="input--style-2" style="color: black;">Birthday: </p>
-              <input value="{{ birthday }}" class="input--style-2" type="text" placeholder="Birthday" id="editBirthday" name="editBirthday">
-            </div>
-            <div class="input-group">
-              <p class="input--style-2" style="color: black;">Occupation: </p>
-              <input value="{{ occupation }}" class="input--style-2" type="text" placeholder="Occupation" id="editOccupation" name="editOccupation">
-            </div>
-            <div class="input-group">
-              <p class="input--style-2" style="color: black;">Relationship Status: </p>
-              <input value="{{ relationship_status }}" class="input--style-2" type="text" placeholder="Relationship Status" id="editRelationship_status" name="editRelationship_status">
-            </div>
-            <div class="input-group">
-              <p class="input--style-2" style="color: black;">Mobile Number: </p>
-              <input value="{{ mobile_number }}" class="input--style-2" type="text" placeholder="Mobile Number" id="editMobileNumber" name="editMobileNumber">
-            </div>
-            <div class="input-group">
-              <p class="input--style-2" style="color: black;">Phone Number: </p>
-              <input value="{{ phone_number }}" class="input--style-2" type="text" placeholder="Phone Number" id="editPhoneNumber" name="editPhoneNumber">
-            </div>
-            <div class="mb-3">
-              <p class="input--style-2" style="color: black;">My Journal: </p>
-              <textarea class="input--style-2" value="{{ my_journal }}" id="editJournal" name="editJournal" style="width: 100%; min-height: 30%;"></textarea>
+              <p class="input--style-2" style="color: black;">Image URL of New background Picture or HEX Code for flat color: </p>
+              <input value="{{ bg }}" class="input--style-2" type="text" id="editBgprofile" name="editBgprofile">
             </div>
 
-
-            <!-- <div class="row row-space">
-              <div class="col-2">
-                <div class="input-group">
-                  <input class="input--style-2 js-datepicker" type="text" placeholder="Birthdate" name="birthday">
-                  <i class="zmdi zmdi-calendar-note input-icon js-btn-calendar"></i>
-                </div>
-              </div>
-              <div class="col-2">
-                <div class="input-group">
-                  <div class="rs-select2 js-select-simple select--no-search">
-                    <select name="gender" tabindex="-1" class="select2-hidden-accessible" aria-hidden="true">
-                      <option disabled="disabled" selected="selected">Gender</option>
-                      <option>Male</option>
-                      <option>Female</option>
-                      <option>Other</option>
-                    </select><span class="select2 select2-container select2-container--default" dir="ltr"
-                      style="width: 68.4px;"><span class="selection"><span
-                          class="select2-selection select2-selection--single" role="combobox" aria-haspopup="true"
-                          aria-expanded="false" tabindex="0" aria-labelledby="select2-gender-i3-container"><span
-                            class="select2-selection__rendered" id="select2-gender-i3-container"
-                            title="Gender">Gender</span><span class="select2-selection__arrow" role="presentation"><b
-                              role="presentation"></b></span></span></span><span class="dropdown-wrapper"
-                        aria-hidden="true"></span></span>
-                    <div class="select-dropdown"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="input-group">
-              <div class="rs-select2 js-select-simple select--no-search">
-                <select name="class" tabindex="-1" class="select2-hidden-accessible" aria-hidden="true">
-                  <option disabled="disabled" selected="selected">Class</option>
-                  <option>Class 1</option>
-                  <option>Class 2</option>
-                  <option>Class 3</option>
-                </select><span class="select2 select2-container select2-container--default" dir="ltr"
-                  style="width: 68.4px;"><span class="selection"><span
-                      class="select2-selection select2-selection--single" role="combobox" aria-haspopup="true"
-                      aria-expanded="false" tabindex="0" aria-labelledby="select2-class-23-container"><span
-                        class="select2-selection__rendered" id="select2-class-23-container"
-                        title="Class">Class</span><span class="select2-selection__arrow" role="presentation"><b
-                          role="presentation"></b></span></span></span><span class="dropdown-wrapper"
-                    aria-hidden="true"></span></span>
-                <div class="select-dropdown"></div>
-              </div>
-            </div>
-            <div class="row row-space">
-              <div class="col-2">
-                <div class="input-group">
-                  <input class="input--style-2" type="text" placeholder="Registration Code" name="res_code">
-                </div>
-              </div>
-            </div> -->
             <div class="p-t-30">
-              <button class="btn btn--radius btn--green" type="submit">Submit</button>
+              <button class="btn btn--radius btn--green" type="submit">Save</button>
             </div>
           </form>
         </div>

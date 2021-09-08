@@ -10,7 +10,7 @@
     <link href="https://netdna.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet">
 	<script src="https://netdna.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
 </head>
-<body>
+<body background="{{ bg }}">
 <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet">
 <div class="container bootstrap snippets bootdey">
     <div class="panel">
@@ -41,13 +41,20 @@
               <p>{{ email }}</p>
           </div>
 
+          <div class="w-25 p-3">
+            <h5 class="text-light bg-dark" style="text-align: center;">{{ mood }}</h5>
+        </div>
+
           <ul class="nav nav-pills nav-stacked">
               <li class="active"><a href="/profile"> <i class="fa fa-user"></i> Profile</a></li>
               {% if current %}
                 <li><a href="/edit"> <i class="fa fa-edit"></i> Edit profile</a></li>
               {% endif %}
               {% if current %}
-                <li><a href="/delete"> <i class="fa fa-edit"></i> Delete profile</a></li>
+                <li><a href="/editbg"> <i class="fa fa-edit"></i> Change Background</a></li>
+              {% endif %}
+              {% if current %}
+                <li><a href="/delete"> <i class="fa fa-edit" style="color:#9a5a5a"></i> Delete profile</a></li>
               {% endif %}
           </ul>
           
@@ -98,6 +105,9 @@
                   <div class="bio-row">
                       <p><span>Occupation </span>: {{ occupation }}</p>
                   </div>
+                  <div class="bio-row">
+                    <p><span>Status </span>: {{ relationship_status }}</p>
+                </div>
                   <div class="bio-row">
                       <p><span>Email </span>: {{ email }}</p>
                   </div>
@@ -170,6 +180,14 @@
               </div>
           </div>
       </div> -->
+      <div class="panel">
+        <div class="bio-graph-heading" style="height: 20px; align-items: center;">
+            <p>My Journal</p>
+        </div>
+        <div class="panel-body bio-graph-info">
+            <p>{{ my_journal }}</p>
+        </div>
+      </div>
   </div>
 </div>
 </div>
@@ -177,7 +195,7 @@
 <style type="text/css">
 body {
     color: #797979;
-    background: #f1f2f7;
+    /* background: #f1f2f7;  */
     font-family: 'Open Sans', sans-serif;
     padding: 0px !important;
     margin: 0px !important;
