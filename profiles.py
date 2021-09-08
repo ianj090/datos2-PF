@@ -1,4 +1,4 @@
-from flask import Flask, redirect, g, request, flash, render_template, session
+from flask import Flask, redirect, g, request, flash, render_template
 from peewee import * # ORM for Sqlite
 from hashlib import md5 # Encoder for password
 import memcache # Cache
@@ -21,6 +21,9 @@ database = SqliteDatabase(DATABASE)
 # Start cache connection
 client = memcache.Client([('127.0.0.1', 11211)])
 cacheTime = 60
+
+global session 
+session = {'logged_in':False, 'username':''}
 
 # Parent Class containing metadata (in case other classes are used)
 class BaseModel(Model):
@@ -51,14 +54,14 @@ def create_table():
     with database:
         database.create_tables([User])
 
-# Set Flask session variable, used to record which user is currently signed in
+# Set session variable, used to record which user is currently signed in
 def auth_user(user):
     session['logged_in'] = True
     session['username'] = user.username
 
 # gets the user from the current session
 def get_current_user():
-    if session.get('logged_in'):
+    if session['logged_in']:
         return User.get(User.username == session['username'])
     else:
         raise RuntimeError
@@ -186,7 +189,7 @@ def login():
 
 @app.route('/profile', methods=['GET', 'POST'])
 def homepage():
-    # if method is post, search for user in DB using form, if method is get use flask session variable
+    # if method is post, search for user in DB using form, if method is get use session variable
     if request.method == "POST":
         try:
             # Find user in db
@@ -374,6 +377,8 @@ def delete():
     # If user does not exist in table, go back to profile
     try:
         user.delete_instance()
+        session['logged_in'] = False
+        session['username'] = ''
     except:
         flash('Could not remove user')
         return redirect('/profile')
