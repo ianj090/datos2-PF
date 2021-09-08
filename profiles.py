@@ -114,7 +114,6 @@ def create_user(user):
             my_journal = user['my_journal'],
             bg = user['bg']
         )
-        print(test)
 
 # Open and close database connection with every request (peewee best practices)
 @app.before_request
@@ -141,7 +140,6 @@ def login():
         try:
             # Encode password into DB
             pw_hash = md5(request.form['inputPassword'].encode('utf-8')).hexdigest()
-            print("yep")
             user = User.get(
                 (User.username == request.form['inputUsername']) &
                 (User.password == pw_hash))
@@ -391,7 +389,6 @@ if __name__ == '__main__':
         data = generate_users().json() # Creates random users to populate DB through api
         for user in data:
             print("user", user)
-            print(user['occupation'])
             create_user(user)
     except:
         print("api limit reached")
