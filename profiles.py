@@ -1,17 +1,18 @@
-from flask import Flask, redirect, g, request, flash, render_template
-# from peewee import * # ORM for Sqlite
+from flask import Flask, redirect, request, flash, render_template #, g
 from hashlib import md5 # Encoder for password
 import memcache # Cache
-import requests # api calls
-import os # random string method
-import random
+from os import urandom # random string method
+import flask_profiler 
+# from peewee import * # ORM for Sqlite
+# import requests # api calls
+# import random
 
 from elasticsearch import Elasticsearch
 
 # Set workspace values / app config
 # DATABASE = 'profiles.db' # Database name for sqlite3
 DEBUG = True # debug flag to print error information
-SECRET_KEY = os.urandom(12) # Used for cookies / session variables
+SECRET_KEY = urandom(12) # Used for cookies / session variables
 
 app = Flask(__name__)
 app.config.from_object(__name__) # loads workspace values
@@ -53,7 +54,7 @@ def get_current_user():
         raise RuntimeError
 
 def cache_user(user):
-    client.set("current_user", user, time=cacheTime)
+    print(client.set("current_user", user, time=cacheTime))
 
 # Redirects to '/login' path
 @app.route('/')
@@ -329,6 +330,23 @@ def delete():
     flash("User deleted")
     return redirect('/login')
 
+
+app.config["flask_profiler"] = {
+    "enabled": app.config["DEBUG"],
+    "storage": {
+        "engine": "sqlite" # Requiere un engine pero no afecta como funciona
+    },
+    "basicAuth":{
+        "enabled": True,
+        "username": "admin",
+        "password": "admin"
+    },
+    "ignore": [
+	    "^/static/.*"
+	]
+}
+
+flask_profiler.init_app(app)
 
 if __name__ == '__main__':
     # create_table() # Creates table in DB if it does not exist
