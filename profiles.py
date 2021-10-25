@@ -7,7 +7,7 @@ import flask_profiler
 # import requests # api calls
 # import random
 
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch # New DB
 
 # Set workspace values / app config
 # DATABASE = 'profiles.db' # Database name for sqlite3
@@ -18,20 +18,20 @@ app = Flask(__name__)
 app.config.from_object(__name__) # loads workspace values
 
 # Sqlite connection (using peewee ORM from now on, not Sqlite directly)
-# Peewee queries docs: https://docs.peewee-orm.com/en/latest/peewee/querying.html 
+# Peewee queries docs: https://docs.peewee-orm.com/en/latest/peewee/querying.html
 # database = SqliteDatabase(DATABASE)
 
-es = Elasticsearch([{'host': '127.0.0.1', 'port': 9200}])
+es = Elasticsearch([{'host': '127.0.0.1', 'port': 9200}]) # Connects to ES DB.
 
 # Start cache connection
 client = memcache.Client([('127.0.0.1', 11211)])
-cacheTime = 60
+cacheTime = 60 # In seconds, how long an item stays in cache
 
 global session 
-session = {'logged_in':False, 'username':''}
+session = {'logged_in':False, 'username':''} # Stores logged-in user.
 
-# indices = ['user']
-# es.delete_by_query(index=indices, body={"query": {"match_all": {}}})
+# Method to delete all instances in ElasticSearch if DB error
+# es.delete_by_query(index="user", body={"query": {"match_all": {}}})
 
 # Set session variable, used to record which user is currently signed in
 def auth_user(username):
@@ -41,20 +41,20 @@ def auth_user(username):
 # gets the user from the current session
 def get_current_user():
     if session['logged_in']:
-        res = es.search(index="user", query={"prefix": {"username" : session['username']}})
+        res = es.search(index="user", query={"term": {"username.keyword": {"value": session['username']}}}) # Method to find user by username in DB
 
-        for hit in res["hits"]["hits"]:
+        for hit in res["hits"]["hits"]: # Required for json return format
             user = hit["_source"]
         
-        if not user:
+        if not user: # Request still returns but empty if not found so we force an error (try, except handling)
             raise RuntimeError
 
         return user
     else:
         raise RuntimeError
 
-def cache_user(user):
-    print(client.set("current_user", user, time=cacheTime))
+def cache_user(user): # Caches user with specific lifetime
+    client.set("current_user", user, time=cacheTime)
 
 # Redirects to '/login' path
 @app.route('/')
@@ -64,11 +64,14 @@ def initial():
 # Start page for new connection, sign in with username and password (if user does not exists it gets created) and goes to '/profile' path through html form.
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    try: client.delete("current_user") # attempts to clear cache before anything, used to clear cache when user gets deleted and to handle logged in errors
+    except: pass
+
     # Submit button calls the same route, handle request.form through POST method.
     if request.method == 'POST':
         # Checks if username exists.
         try:
-            res = es.search(index="user", query={"prefix": {"username" : request.form['inputUsername']}})
+            res = es.search(index="user", query={"term": {"username.keyword": {"value": request.form['inputUsername']}}})
             
             pw_hash = md5(request.form['inputPassword'].encode('utf-8')).hexdigest()
 
@@ -79,6 +82,7 @@ def login():
                 auth_user(request.form['inputUsername'])
 
                 return redirect('/profile') # Returns user's profile
+                
             else: # If password doesn't match reload with message
                 flash("That username is already taken") # Flask method to show messages to user (errors, other feedback)
                 return render_template('login.html')
@@ -106,10 +110,10 @@ def login():
                     'bg': "#f1f2f7"
                 }
                 result = es.index(index = "user", id = user_obj["username"], document = user_obj)
-                print(result)
+                print(result) # Adds user to DB
 
-                auth_user(user_obj["username"])
-                cache_user(user_obj)
+                auth_user(user_obj["username"]) # Changes session variable values
+                cache_user(user_obj) # Adds user to cache
 
                 return redirect('/profile')
 
@@ -122,11 +126,11 @@ def login():
 
 @app.route('/profile', methods=['GET', 'POST'])
 def homepage():
-    # if method is post, search for user in DB using form, if method is get use session variable
+    # if method is POST, search for user in DB using form, if method is GET use session variable
     if request.method == "POST":
         try:
-            # Find user in db
-            res = es.search(index="user", query={"prefix": {"username" : request.form['searchUsername']}})
+            # Find user in DB
+            res = es.search(index="user", query={"term": {"username.keyword": {"value": request.form['searchUsername']}}})
 
             for hit in res["hits"]["hits"]:
                 user = hit["_source"]
@@ -136,7 +140,7 @@ def homepage():
 
             # Checks if user is the current session user
             if request.form['searchUsername'] == session['username']:
-                current = True
+                current = True # Variable which handles permissions (edit or delete user, if user is not current then these are not allowed)
             else:
                 current = False
         except:
@@ -145,8 +149,9 @@ def homepage():
     else:
         # Checks if user exists
         try:
-            user = client.get("current_user")
-            if user == None:
+            user = client.get("current_user") # Attempts to get from Cache
+            print(user)
+            if user == None: # If not in cache from DB
                 user = get_current_user()
                 print("from DB")
         except:
@@ -178,7 +183,7 @@ def homepage():
 def edit():
     # Submit button calls itself, if POST, updates user info.
     if request.method == "POST":
-        # Finds user and updates info, returns number of rows affected for debugging purposes
+        # Tries to find user in cache or DB
         try:
             current_user = client.get("current_user")
             if current_user == None:
@@ -203,7 +208,7 @@ def edit():
                 "phone_number": request.form['editPhoneNumber'],
                 "my_journal": request.form['editJournal']
             }
-            es.update(index = "user", id = session["username"], body = {"doc": user_obj})
+            es.update(index = "user", id = session["username"], body = {"doc": user_obj}) # Updates DB with new user info
         else:
             user_obj = {
                 "mood": request.form['editMood'],
@@ -219,16 +224,12 @@ def edit():
                 "phone_number": request.form['editPhoneNumber'],
                 "my_journal": request.form['editJournal']
             }
-            es.update(index = "user", id = session["username"], body = {"doc": user_obj})
+            es.update(index = "user", id = session["username"], body = {"doc": user_obj}) # Updates DB with new user info
 
         # Replace cached user with new data
         try:
             user = get_current_user()
-            cached_user = client.get("current_user") 
-            if cached_user == None:
-                cache_user(user)
-            else:
-                client.replace("current_user", user, time=cacheTime)
+            cache_user(user)
         except:
             pass
 
@@ -265,7 +266,7 @@ def edit():
 def editbg():
     # Submit button calls itself, if POST, updates user info.
     if request.method == "POST":
-        # Finds user and updates info, returns number of rows affected for debugging purposes
+        # Tries to find user in cache or db.
         try:
             current_user = client.get("current_user")
             if current_user == None:
@@ -277,16 +278,12 @@ def editbg():
         user_obj = {
             "bg": request.form['editBgprofile']
         }
-        es.update(index = "user", id = session["username"], body = {"doc": user_obj})
+        es.update(index = "user", id = session["username"], body = {"doc": user_obj}) # Updates user in DB
         
         # Replace cached user with new data
         try:
             user = get_current_user()
-            cached_user = client.get("current_user") 
-            if cached_user == None:
-                cache_user(user)
-            else:
-                client.replace("current_user", user, time=cacheTime)
+            cache_user(user)
         except:
             pass
 
@@ -319,22 +316,22 @@ def delete():
     
     # If user does not exist in table, go back to profile
     try:
-        res = es.delete_by_query(index="user", body={"query": {"prefix": {"username" : session['username']}}})
-        session['logged_in'] = False
+        res = es.delete_by_query(index="user", body={"query": {"term": {"username.keyword": {"value": session['username']}}}}) # deletes user from DB
+        session['logged_in'] = False # Resets session values
         session['username'] = ''
     except:
-        flash('Could not remove user')
+        flash('Could not remove user') # error handler
         return redirect('/profile')
 
     # If all passes go to login.
     flash("User deleted")
     return redirect('/login')
 
-
+# Configurations for profiler
 app.config["flask_profiler"] = {
     "enabled": app.config["DEBUG"],
     "storage": {
-        "engine": "sqlite" # Requiere un engine pero no afecta como funciona
+        "engine": "sqlite" # Profiler requires an engine but it doesn't affect measurements
     },
     "basicAuth":{
         "enabled": True,
@@ -346,6 +343,8 @@ app.config["flask_profiler"] = {
 	]
 }
 
+# Starts profiler in http://127.0.0.1:5000/flask-profiler/ 
+# username and password = "admin"
 flask_profiler.init_app(app)
 
 if __name__ == '__main__':
@@ -361,7 +360,7 @@ if __name__ == '__main__':
     app.run()
 
 
-
+# Sqlite classes and methods no longer in use
 
 # Parent Class containing metadata (in case other classes are used)
 # class BaseModel(Model):
