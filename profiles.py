@@ -11,7 +11,7 @@ from elasticsearch import Elasticsearch # New DB
 
 # Set workspace values / app config
 # DATABASE = 'profiles.db' # Database name for sqlite3
-DEBUG = False # debug flag to print error information
+DEBUG = True # debug flag to print error information, must be true for profiler
 SECRET_KEY = urandom(12) # Used for cookies / session variables
 
 app = Flask(__name__)
@@ -27,7 +27,10 @@ es = Elasticsearch([{'host': '127.0.0.1', 'port': 9200}]) # Connects to ES DB.
 client = memcache.Client([('127.0.0.1', 11211)])
 cacheTime = 60 # In seconds, how long an item stays in cache
 
-global session 
+global cache
+cache = True # Used to enable or disable cache (for jmeter)
+
+global session
 session = {'logged_in':False, 'username':''} # Stores logged-in user.
 
 # Method to delete all instances in ElasticSearch if DB error
@@ -54,7 +57,8 @@ def get_current_user():
         raise RuntimeError
 
 def cache_user(user): # Caches user with specific lifetime
-    client.set("current_user", user, time=cacheTime)
+    if cache == True:
+        client.set("current_user", user, time=cacheTime)
 
 # Redirects to '/login' path
 @app.route('/')
@@ -64,8 +68,9 @@ def initial():
 # Start page for new connection, sign in with username and password (if user does not exists it gets created) and goes to '/profile' path through html form.
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    try: client.delete("current_user") # attempts to clear cache before anything, used to clear cache when user gets deleted and to handle logged in errors
-    except: pass
+    if cache == True:
+        try: client.delete("current_user") # attempts to clear cache before anything, used to clear cache when user gets deleted and to handle logged in errors
+        except: pass
 
     # Submit button calls the same route, handle request.form through POST method.
     if request.method == 'POST':
@@ -148,7 +153,10 @@ def homepage():
     else:
         # Checks if user exists
         try:
-            user = client.get("current_user") # Attempts to get from Cache
+            if cache == True:
+                user = client.get("current_user") # Attempts to get from Cache
+            else:
+                user = None
             if user == None: # If not in cache from DB
                 user = get_current_user()
                 print("from DB")
@@ -183,7 +191,10 @@ def edit():
     if request.method == "POST":
         # Tries to find user in cache or DB
         try:
-            current_user = client.get("current_user")
+            if cache == True:
+                current_user = client.get("current_user")
+            else:
+                current_user = None
             if current_user == None:
                 current_user = get_current_user()
                 print("from DB")
@@ -235,7 +246,10 @@ def edit():
 
     # Checks if user exists
     try:
-        user = client.get("current_user")
+        if cache == True:
+            user = client.get("current_user")
+        else:
+            user = None
         if user == None:
             user = get_current_user()
             print("from DB")
@@ -266,7 +280,10 @@ def editbg():
     if request.method == "POST":
         # Tries to find user in cache or db.
         try:
-            current_user = client.get("current_user")
+            if cache == True:
+                current_user = client.get("current_user")
+            else:
+                current_user = None
             if current_user == None:
                 current_user = get_current_user()
                 print("from DB")
@@ -289,7 +306,10 @@ def editbg():
 
     # Checks if user exists
     try:
-        user = client.get("current_user")
+        if cache == True:
+            user = client.get("current_user")
+        else:
+            user = None
         if user == None:
             user = get_current_user()
             print("from DB")
@@ -305,7 +325,10 @@ def editbg():
 def delete():
     # If user session does not exist, go to login.
     try:
-        user = client.get("current_user")
+        if cache == True:
+            user = client.get("current_user")
+        else:
+            user = None
         if user == None:
             user = get_current_user()
             print("from DB")
