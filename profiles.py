@@ -11,7 +11,7 @@ from elasticsearch import Elasticsearch # New DB
 
 # Set workspace values / app config
 # DATABASE = 'profiles.db' # Database name for sqlite3
-DEBUG = True # debug flag to print error information
+DEBUG = False # debug flag to print error information
 SECRET_KEY = urandom(12) # Used for cookies / session variables
 
 app = Flask(__name__)
@@ -110,7 +110,6 @@ def login():
                     'bg': "#f1f2f7"
                 }
                 result = es.index(index = "user", id = user_obj["username"], document = user_obj)
-                print(result) # Adds user to DB
 
                 auth_user(user_obj["username"]) # Changes session variable values
                 cache_user(user_obj) # Adds user to cache
@@ -150,7 +149,6 @@ def homepage():
         # Checks if user exists
         try:
             user = client.get("current_user") # Attempts to get from Cache
-            print(user)
             if user == None: # If not in cache from DB
                 user = get_current_user()
                 print("from DB")
@@ -208,7 +206,7 @@ def edit():
                 "phone_number": request.form['editPhoneNumber'],
                 "my_journal": request.form['editJournal']
             }
-            es.update(index = "user", id = session["username"], body = {"doc": user_obj}) # Updates DB with new user info
+            es.update(index = "user", id = session["username"], refresh = 'wait_for', body = {"doc": user_obj}) # Updates DB with new user info
         else:
             user_obj = {
                 "mood": request.form['editMood'],
@@ -224,7 +222,7 @@ def edit():
                 "phone_number": request.form['editPhoneNumber'],
                 "my_journal": request.form['editJournal']
             }
-            es.update(index = "user", id = session["username"], body = {"doc": user_obj}) # Updates DB with new user info
+            res = es.update(index = "user", id = session["username"], refresh = 'wait_for', body = {"doc": user_obj}) # Updates DB with new user info
 
         # Replace cached user with new data
         try:
@@ -278,7 +276,7 @@ def editbg():
         user_obj = {
             "bg": request.form['editBgprofile']
         }
-        es.update(index = "user", id = session["username"], body = {"doc": user_obj}) # Updates user in DB
+        es.update(index = "user", id = session["username"], refresh = 'wait_for', body = {"doc": user_obj}) # Updates DB with new user info
         
         # Replace cached user with new data
         try:

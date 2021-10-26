@@ -16,4 +16,9 @@ This project uses ElasticSearch as a database and Kibana as a metric dashboard, 
 * Download ElasticSearch: https://www.elastic.co/downloads/elasticsearch
 * Download Kibana: https://www.elastic.co/downloads/kibana 
 
-*Note: This project utilizes two ElasticSearch nodes, one is the master and the other holds replica shards so that data is exactly the same in both nodes, this behaviour can be replicated by unzipping the ElasticSearch zip file twice and running ElasticSearch on two separate terminals*
+<br>
+This project also uses Memcached to store user data in a cache
+* Download Memcached (on Windows): https://commaster.net/posts/installing-memcached-windows/ 
+
+### Please Note
+- *This project utilizes two ElasticSearch nodes, one is the master and the other holds replica shards so that data is exactly the same in both nodes, this behaviour can be replicated by unzipping the ElasticSearch zip file twice and running ElasticSearch on two separate terminals*
