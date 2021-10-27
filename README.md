@@ -11,9 +11,9 @@ This project contains simple profile pages for users. Each user can fill out a '
 ## Kibana Dashboard
 The following is an example of the current Kibana Dashboard and some of the visualizations we found most interesting, Kibana dashboards can be accessed at http://localhost:5601/app/dashboards
 
-![Dashboard Panel 1](/kibana/Dashboard_Panel_1.jpeg)
-![Dashboard Panel 2](/kibana/Dashboard_Panel_2.jpeg)
-![Dashboard Panel 3](/kibana/Dashboard_Panel_3.jpeg)
+![Dashboard Panel 1](/kibana/Dashboard_panel_1.jpeg)
+![Dashboard Panel 2](/kibana/Dashboard_panel_2.jpeg)
+![Dashboard Panel 3](/kibana/Dashboard_panel_3.jpeg)
 
 ## Flask Profiler
 The following is an example of the data provided by the Flask Profiler which can be accessed at http://127.0.0.1:5000/flask-profiler
@@ -23,6 +23,15 @@ The following is an example of the data provided by the Flask Profiler which can
 
 ## Jmeter
 The complete jmeter file, along with all screenshots of the tool's analysis of the project both with and without a cache, can be found in the folder titled 'jmeter', to disable the cache for the project, simply change the variable 'cache' to 'False' in the python file ```profiles.py```.
+
+<br>
+
+### Test Conclusions:
+* Non-edit routes such as /login, /profile, and /delete perform much better with a cache than without.
+* Edit routes such as /edit and /editbg, that modify cache and the database values directly, perform worse when a cache is available.
+* Though the cache did improve the overall speed of the project, the effect was relatively small. The project could theoretically perform worse if users decide to use the edit routes more often than non-edit routes. As such, implementing a cache isn't necessary for a project of this size, but bigger projects could definetly benefit. 
+
+These conclusions makes sense as the non-edit routes benefit from the speed of accessing a cache over accessing a database, while edit routes suffer from having additional operations to perform (both cache and database).
 
 <br>
 
