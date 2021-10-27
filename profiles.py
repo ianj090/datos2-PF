@@ -352,7 +352,7 @@ def delete():
 app.config["flask_profiler"] = {
     "enabled": app.config["DEBUG"],
     "storage": {
-        "engine": "sqlite" # Profiler requires an engine but it doesn't affect measurements
+        "engine": "sqlite" # Profiler requires an engine, elasticsearch is not supported but sqlite offers similar functionality
     },
     "basicAuth":{
         "enabled": True,
@@ -364,9 +364,9 @@ app.config["flask_profiler"] = {
 	]
 }
 
-# Starts profiler in http://127.0.0.1:5000/flask-profiler/ 
+# Starts profiler in http://127.0.0.1:5000/flask-profiler/
 # username and password = "admin"
-flask_profiler.init_app(app)
+# flask_profiler.init_app(app) # Disabled for production, can cause some errors due to incorrect engine
 
 if __name__ == '__main__':
     # create_table() # Creates table in DB if it does not exist
