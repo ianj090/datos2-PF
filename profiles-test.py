@@ -1,27 +1,21 @@
-from flask import Flask, redirect, request, flash, render_template #, g
+from flask import Flask, redirect, request, flash, render_template # All relevant Flask imports
 from hashlib import md5 # Encoder for password
 import memcache # Cache
-from os import urandom # random string method
+from os import urandom # random string method for Flask
 from elasticsearch import Elasticsearch # New DB
-import flask_profiler # Profiler for Flask apps
-from kafka import KafkaConsumer, KafkaProducer # Kafka Server
+import flask_profiler # Profiler for Flask apps, does not work with ES
+from kafka import KafkaProducer # Kafka Server
 import json # used for kafka loading
-# from peewee import * # ORM for Sqlite
-# import requests # api calls
-# import random
-
+from time import sleep # used to handle async logstash
+import mysql.connector as mysql # used for connecting to MySQL
 
 # Set workspace values / app config
-# DATABASE = 'profiles.db' # Database name for sqlite3
 DEBUG = True # debug flag to print error information, must be true for profiler
-SECRET_KEY = urandom(12) # Used for cookies / session variables
+TESTING = True
+SECRET_KEY = urandom(12) # Used for Flask cookies / session variables
 
-app = Flask(__name__)
+app = Flask(__name__) # loads as Flask
 app.config.from_object(__name__) # loads workspace values
-
-# Sqlite connection (using peewee ORM from now on, not Sqlite directly)
-# Peewee queries docs: https://docs.peewee-orm.com/en/latest/peewee/querying.html
-# database = SqliteDatabase(DATABASE)
 
 es = Elasticsearch([{'host': '127.0.0.1', 'port': 9200}]) # Connects to ES DB.
 
@@ -30,30 +24,69 @@ client = memcache.Client([('127.0.0.1', 11211)])
 cacheTime = 60 # In seconds, how long an item stays in cache
 
 # Start Kafka Server Vars and clients
-TOPIC_NAME = "users"
-KAFKA_SERVER = "localhost:9092"
+TOPIC_NAME = "users" # topic is similar to channel name, says what topic it should send to, logstash listens to the same topic
+KAFKA_SERVER = "127.0.0.1:9092"
 
-consumer = KafkaConsumer(
-    TOPIC_NAME,
-    bootstrap_servers = KAFKA_SERVER,
-    # to deserialize kafka.producer.object into dict
-    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-)
-
+# Set Kafka Producer, sends to logstash
 producer = KafkaProducer(
     bootstrap_servers = KAFKA_SERVER,
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+    value_serializer=lambda v: json.dumps(v).encode('utf-8') # Formatted as JSON
 )
+
+# Connect to MySQL Database
+db = mysql.connect(
+    host = "localhost",
+    user = "admin", # Defined when downloading MySQL
+    passwd = "Datos2-Password123", # Defined when downloading MySQL
+    database = "profiles", # Comment out if db not created yet
+    autocommit = True # Used to handle logstash async
+)
+cursor = db.cursor(dictionary=True, buffered=True) # cursor is used to create queries and read returns, sets return as a dict and buffered is required for logstash async handling
+
+# Create database, not needed if already created
+# cursor.execute("CREATE DATABASE profiles")
+
+# cursor.execute("SHOW DATABASES") # Lists all dbs, some are created on setup, only use our db created above
+# databases = cursor.fetchall()
+# print(databases)
+
+# Create table, not needed if already created
+# cursor.execute("""
+# CREATE TABLE users(
+#     username VARCHAR(250) PRIMARY KEY,
+#     password VARCHAR(250),
+#     profilepic VARCHAR(250),
+#     mood VARCHAR(250),
+#     description VARCHAR(250),
+#     email VARCHAR(250),
+#     firstName VARCHAR(250),
+#     lastName VARCHAR(250),
+#     country VARCHAR(250),
+#     birthday VARCHAR(250),
+#     occupation VARCHAR(250),
+#     relationship_status VARCHAR(250),
+#     mobile_number VARCHAR(250),
+#     phone_number VARCHAR(250),
+#     my_journal VARCHAR(1000),
+#     bg VARCHAR(250)
+# )
+# """) # We pass all vars as strings since they won't be mutated here anyway
+
+# cursor.execute("SHOW TABLES") # Shows all tables in our db
+# tables = cursor.fetchall()
+# print(tables)
 
 # Set our global variables
 global cache
-cache = False # Used to enable or disable cache (for jmeter)
+cache = True # Used to enable or disable cache (for jmeter or debugging)
 
 global session
 session = {'logged_in':False, 'username':''} # Stores logged-in user.
 
-# Method to delete all instances in ElasticSearch if DB error
-# es.delete_by_query(index="user", body={"query": {"match_all": {}}})
+# Method to delete all instances in ElasticSearch for debugging
+# es.delete_by_query(index="logstash", body={"query": {"match_all": {}}})
+# cursor.execute("DELETE FROM users")
+# db.commit()
 
 # Set session variable, used to record which user is currently signed in
 def auth_user(username):
@@ -61,19 +94,70 @@ def auth_user(username):
     session['username'] = username
 
 # gets the user from the current session
-def get_current_user():
+def get_current_user(useCache = True):
     if session['logged_in']:
-        res = es.search(index="user", query={"term": {"username.keyword": {"value": session['username']}}}) # Method to find user by username in DB
-
-        for hit in res["hits"]["hits"]: # Required for json return format
-            user = hit["_source"]
-        
-        if not user: # Request still returns but empty if not found so we force an error (try, except handling)
+        try:
+        # res = es.search(index="logstash", query={"match_all": {}}) # Method to find all users
+            try:
+                # First try to find in ES, if not available then uses MySQL and Cache
+                user = None
+                count = 0
+                while user is None:
+                    if count != 0:
+                        sleep(0.1)
+                    res = es.search(index="logstash", query={"term": {"username.keyword": {"value": session['username']}}}) # Method to find user by username in DB
+                    for hit in res["hits"]["hits"]: # Required for json return format
+                        user = hit["_source"]
+                    count += 1
+                    if count >= 50:
+                        break
+                print(count)
+                if user is None:
+                    raise RuntimeError
+                print("From ES")
+            except:
+                # First check cache and if not then MySQL
+                if cache == True and useCache == True:
+                    user = client.get("current_user")
+                    print("From Cache")
+                else:
+                    user = None
+                if user == None:
+                    count = 0
+                    while user is None or user == []:
+                        if count != 0:
+                            sleep(0.1)
+                        cursor.execute("SELECT * FROM users where username=%s", (session["username"],))
+                        user = cursor.fetchall()
+                        user = user[0]
+                        count += 1
+                        if count >= 50:
+                            break
+                    print("From MySQL")
+        except:
             raise RuntimeError
 
-        return user
+        if not user or user == []: # Request still returns but empty if not found so we force an error (try, except handling)
+            raise RuntimeError
+        
+        return user # user is a dict, a user_obj
     else:
         raise RuntimeError
+
+def deleteUser():
+    # Deletes from both DBs and Cache
+    try: 
+        res = es.delete_by_query(index="logstash", refresh = 'true', body={"query": {"term": {"username.keyword": {"value": session['username']}}}}) # deletes user from ES
+    except: pass
+    try:
+        cursor.execute("DELETE FROM users WHERE username=%s", (session["username"],)) # deletes user from MySQL
+        rows_affected = cursor.rowcount
+        if rows_affected != 1:
+            db.commit()
+    except: pass
+    if cache == True:
+        try: client.delete("current_user") # attempts to clear cache if still up
+        except: pass
 
 def cache_user(user): # Caches user with specific lifetime
     if cache == True:
@@ -90,20 +174,33 @@ def login():
     if cache == True:
         try: client.delete("current_user") # attempts to clear cache before anything, used to clear cache when user gets deleted and to handle logged in errors
         except: pass
+    session['logged_in'] = False 
+    session['username'] = ''
 
     # Submit button calls the same route, handle request.form through POST method.
     if request.method == 'POST':
         # Checks if username exists.
         try:
-            res = es.search(index="user", query={"term": {"username.keyword": {"value": request.form['inputUsername']}}})
-            
-            pw_hash = md5(request.form['inputPassword'].encode('utf-8')).hexdigest()
+            # First try from ES, if ES is down then goes to MySQL, no cache exists yet
+            try:
+                res = es.search(index="logstash", query={"term": {"username.keyword": {"value": request.form['inputUsername']}}})
+                for hit in res["hits"]["hits"]:
+                    user = hit["_source"]
+                password = user["password"]
+                print("From ES")
+            except:
+                cursor.execute("SELECT * FROM users where username=%s", (request.form['inputUsername'],))
+                user = cursor.fetchall()
+                user = user[0]
+                if user is None: raise RuntimeError # Small startup handler
+                print("From MySQL")
+                password = user["password"]
 
-            for hit in res["hits"]["hits"]:
-                password = hit["_source"]["password"]
+            pw_hash = md5(request.form['inputPassword'].encode('utf-8')).hexdigest()
 
             if password == pw_hash: # If password matches go to profile
                 auth_user(request.form['inputUsername'])
+                cache_user(user) # Adds user to cache
 
                 return redirect('/profile') # Returns user's profile
                 
@@ -133,7 +230,13 @@ def login():
                     'my_journal': "",
                     'bg': "#f1f2f7"
                 }
-                result = es.index(index = "user", id = user_obj["username"], document = user_obj)
+
+                try: 
+                    producer.send(TOPIC_NAME, user_obj)
+                    producer.flush()
+                except Exception:
+                    flash("DB or Cache Error") # Flask method to show messages to user (errors, other feedback)
+                    return render_template('login.html')
 
                 auth_user(user_obj["username"]) # Changes session variable values
                 cache_user(user_obj) # Adds user to cache
@@ -152,14 +255,22 @@ def homepage():
     # if method is POST, search for user in DB using form, if method is GET use session variable
     if request.method == "POST":
         try:
-            # Find user in DB
-            res = es.search(index="user", query={"term": {"username.keyword": {"value": request.form['searchUsername']}}})
+            try:
+                # Find user in DB
+                res = es.search(index="logstash", query={"term": {"username.keyword": {"value": request.form['searchUsername']}}})
 
-            for hit in res["hits"]["hits"]:
-                user = hit["_source"]
-            
-            if not user:
-                raise RuntimeError
+                for hit in res["hits"]["hits"]:
+                    user = hit["_source"]
+                if user is None: raise RuntimeError
+                print("From ES")
+            except:
+                cursor.execute("SELECT * FROM users where username=%s", (request.form['searchUsername'],)) # if ES fails check MySQL
+                user = cursor.fetchall()
+                user = user[0]
+                print(request.form['searchUsername'])
+                print(user)
+                if user is None: raise RuntimeError
+            username = user['username'] # Simple handler, fails if it can't parse
 
             # Checks if user is the current session user
             if request.form['searchUsername'] == session['username']:
@@ -172,13 +283,7 @@ def homepage():
     else:
         # Checks if user exists
         try:
-            if cache == True:
-                user = client.get("current_user") # Attempts to get from Cache
-            else:
-                user = None
-            if user == None: # If not in cache from DB
-                user = get_current_user()
-                print("from DB")
+            user = get_current_user()
         except:
             return redirect('/login')
 
@@ -210,13 +315,7 @@ def edit():
     if request.method == "POST":
         # Tries to find user in cache or DB
         try:
-            if cache == True:
-                current_user = client.get("current_user")
-            else:
-                current_user = None
-            if current_user == None:
-                current_user = get_current_user()
-                print("from DB")
+            current_user = get_current_user(False)
         except:
             return redirect('/login')
 
@@ -236,7 +335,6 @@ def edit():
                 "phone_number": request.form['editPhoneNumber'],
                 "my_journal": request.form['editJournal']
             }
-            es.update(index = "user", id = session["username"], refresh = 'wait_for', body = {"doc": user_obj}) # Updates DB with new user info
         else:
             user_obj = {
                 "mood": request.form['editMood'],
@@ -252,31 +350,23 @@ def edit():
                 "phone_number": request.form['editPhoneNumber'],
                 "my_journal": request.form['editJournal']
             }
-            res = es.update(index = "user", id = session["username"], refresh = 'wait_for', body = {"doc": user_obj}) # Updates DB with new user info
+        current_user.update(user_obj)
 
-        # Replace cached user with new data
-        try:
-            user = get_current_user()
-            cache_user(user)
-        except:
-            pass
+        deleteUser()
+        producer.send(TOPIC_NAME, current_user)
+        producer.flush()
+
+        cache_user(current_user)
 
         return redirect('/profile')
 
     # Checks if user exists
     try:
-        if cache == True:
-            user = client.get("current_user")
-        else:
-            user = None
-        if user == None:
-            user = get_current_user()
-            print("from DB")
+        user = get_current_user()
     except:
         return redirect('/login')
 
     return render_template('editProfile.html',
-        # username = user["username"],
         profilepic = user["profilepic"],
         mood = user["mood"],
         description = user["description"],
@@ -299,39 +389,26 @@ def editbg():
     if request.method == "POST":
         # Tries to find user in cache or db.
         try:
-            if cache == True:
-                current_user = client.get("current_user")
-            else:
-                current_user = None
-            if current_user == None:
-                current_user = get_current_user()
-                print("from DB")
+            current_user = get_current_user(False)
         except:
             return redirect('/login')
 
         user_obj = {
             "bg": request.form['editBgprofile']
         }
-        es.update(index = "user", id = session["username"], refresh = 'wait_for', body = {"doc": user_obj}) # Updates DB with new user info
-        
-        # Replace cached user with new data
-        try:
-            user = get_current_user()
-            cache_user(user)
-        except:
-            pass
+        current_user.update(user_obj)
+
+        deleteUser()
+        producer.send(TOPIC_NAME, current_user)
+        producer.flush()
+
+        cache_user(current_user)
 
         return redirect('/profile')
 
     # Checks if user exists
     try:
-        if cache == True:
-            user = client.get("current_user")
-        else:
-            user = None
-        if user == None:
-            user = get_current_user()
-            print("from DB")
+        user = get_current_user()
     except:
         return redirect('/login')
 
@@ -342,20 +419,12 @@ def editbg():
 @app.route('/delete')
 def delete():
     # If user session does not exist, go to login.
-    try:
-        if cache == True:
-            user = client.get("current_user")
-        else:
-            user = None
-        if user == None:
-            user = get_current_user()
-            print("from DB")
-    except:
+    if session["username"] == '':
         return redirect('/login')
     
     # If user does not exist in table, go back to profile
     try:
-        res = es.delete_by_query(index="user", body={"query": {"term": {"username.keyword": {"value": session['username']}}}}) # deletes user from DB
+        deleteUser()
         session['logged_in'] = False # Resets session values
         session['username'] = ''
     except:
@@ -388,105 +457,4 @@ app.config["flask_profiler"] = {
 
 if __name__ == '__main__':
     # create_table() # Creates table in DB if it does not exist
-    # try:
-    #     data = generate_users().json() # Creates random users to populate DB through api
-    #     for user in data:
-    #         print("user", user)
-    #         create_user(user)
-    # except:
-    #     print("api limit reached")
-    #     pass
     app.run()
-
-
-# Sqlite classes and methods no longer in use
-
-# Parent Class containing metadata (in case other classes are used)
-# class BaseModel(Model):
-#     class Meta:
-#         database = database
-
-# # Class for users with profiles, contains all values to be displayed
-# class User(BaseModel):
-#     username = CharField(unique=True) # primary key
-#     password = CharField() 
-#     profilepic = CharField()
-#     mood = CharField()
-#     description = CharField()
-#     email = CharField()
-#     firstName = CharField()
-#     lastName = CharField()
-#     country = CharField()
-#     birthday = CharField()
-#     occupation = CharField()
-#     relationship_status = CharField()
-#     mobile_number = CharField()
-#     phone_number = CharField()
-#     my_journal = CharField()
-#     bg = CharField()
-
-# # Creates table in database, ignored if it exists
-# def create_table():
-#     with database:
-#         database.create_tables([User])
-
-
-# # Api tokens: G5O5mE74Ey3YNnbNYMlgeg / 6tu2dks70riHqBKPIrDtTA / 4zI_9ibRnO_U3sUGrBj1fw / RM3JTB7Fz4BcLbEKvGilfQ	/ 0S-48tYujOzkcOUSLjJ3nQ / x4WffQ8A0BaqJ2X-gje7Ig
-# def generate_users():
-#     body = {
-#         # 'token': 'x4WffQ8A0BaqJ2X-gje7Ig',
-#         'data': {
-#             'username': 'name',
-#             'password': 'personPassword',
-#             'profilepic': 'personAvatar',
-#             'mood': "Relaxed", # default mood is 'Relaxed'
-#             'description': 'stringShort',
-#             'email': 'internetEmail',
-#             'firstName': 'nameFirst',
-#             'lastName': 'nameLast',
-#             'country': 'addressCountry',
-#             'birthday': 'dateDOB',
-#             'occupation': 'personTitle',
-#             'relationship_status': 'personMaritalStatus',
-#             'mobile_number': 'phoneMobile',
-#             'phone_number': 'phoneHome',
-#             'my_journal' : 'stringLong',
-#             'bg': 'colorHEX',
-#             '_repeat': 2 # Max for free tier of api plan
-#         }
-#     }
-
-#     r = requests.post('https://app.fakejson.com/q', json = body)
-#     return r
-
-# def create_user(user):
-#     with database.atomic(): # Peewee best practice
-#         test = User.create(
-#             username = ''.join(random.sample(user['username'], len(user['username']))),
-#             password = md5((user['password']).encode('utf-8')).hexdigest(),
-#             profilepic = user['profilepic'],
-#             mood = user['mood'],
-#             description = user['description'],
-#             email = user['email'],
-#             firstName = user['firstName'],
-#             lastName = user['lastName'],
-#             country = user['country'],
-#             birthday = user['birthday'],
-#             occupation = user['occupation'],
-#             relationship_status = user['relationship_status'],
-#             mobile_number = user['mobile_number'],
-#             phone_number = user['phone_number'],
-#             my_journal = user['my_journal'],
-#             bg = user['bg']
-#         )
-
-# # Open and close database connection with every request (peewee best practices)
-# @app.before_request
-# def before_request():
-#     g.db = database
-#     g.db.connect()
-
-# @app.after_request
-# def after_request(response):
-#     g.db.close()
-#     return response
