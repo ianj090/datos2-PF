@@ -16,7 +16,7 @@ This project contains simple profile pages for users. Each user can fill out a '
 * Kibana as a dashboard visualizer for the records stored in Elasticsearch.
 * MySQL as a back-up database for the records that are stored in Elastisearch. If ES fails for some reason, MySQL allows the records to never be lost.
 * Memecached as a simple Cache used in unison with MySQL to speed up the app's performance when ES fails. The app first checks this ES, then the cache and lastly the MySQL DB, if none of these work then the record does not exist.
-* Flask-profiler as a profiler for Flask applications, this profiler does not support Elasticsearch correctly but all requests are still saved.
+* Werkzeug as a profiler for Flask applications, this is an alternative to Flask-profiler that we used previously, it can be used in unison with snakeviz to show profiler statistics in a contained GUI.
 
 
 The combination of technologies make up a project structure represented by the following diagram:
@@ -30,11 +30,14 @@ The following is an example of the current Kibana Dashboard and some of the visu
 ![Dashboard Panel 2](/kibana/Dashboard_panel_2.jpeg)
 ![Dashboard Panel 3](/kibana/Dashboard_panel_3.jpeg)
 
-## Flask Profiler
-The following is an example of the data provided by the Flask Profiler which can be accessed at http://127.0.0.1:5000/flask-profiler
+## Werkzeug Profiler
+The following is an example of the data provided by the Werkzeug Profiler, the results are always printed in the terminal when running, and snakeviz can be used with the command snakeviz fileName.prof in a terminal to open a GUI in the browser with all info shown in a graph and a table:
 
-![Flask Profiler Example](/flask-profiler/example.jpg)
-![Flask Profiler Example 2](/flask-profiler/example2.jpg)
+Snakeviz GUI:
+![Flask Profiler Example](/werkzeug-profiler/GUI-example.jpg)
+<br><br>
+Terminal output:
+![Flask Profiler Example 2](/werkzeug-profiler/Terminal-example.jpg)
 
 ## Jmeter
 The complete jmeter file, along with all screenshots of the tool's analysis of the project both with and without a cache, can be found in the folder titled 'jmeter', to disable the cache for the project, simply change the variable 'cache' to 'False' in the python file ```profiles.py```.
@@ -60,7 +63,7 @@ pip install elasticsearch # Using version 7.15.0
 
 pip install Flask # And all its dependencies
 
-pip install flask-profiler # Using version 1.8.1
+pip install snakeviz # Using version 2.1.1
 
 pip install python-memcached # Using version 1.59
 
@@ -84,7 +87,6 @@ This project also uses Memcached to store user data in a cache
 
 ### Please Note
 - *This project utilizes two ElasticSearch nodes, one is the master and the other holds replica shards so that data is exactly the same in both nodes, this behaviour can be replicated by unzipping the ElasticSearch zip file twice and running ElasticSearch on two separate terminals*
-- *Debug mode must be on to access flask-profiler*
 - *We don't ever directly interact with the process of storing records in Elasticsearch or MySQL, this process is handled by sending records to a Kafka Server which is picked up by Logstash who then automatically stores these records into Elasticsearch and MySQL using a user-defined pipelines.yml*
 
 ### Logstash Notes

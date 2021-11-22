@@ -3,7 +3,6 @@ from hashlib import md5 # Encoder for password
 import memcache # Cache
 from os import urandom # random string method for Flask
 from elasticsearch import Elasticsearch # New DB
-import flask_profiler # Profiler for Flask apps, does not work with ES
 from kafka import KafkaProducer # Kafka Server
 import json # used for kafka loading
 from time import sleep # used to handle async logstash
@@ -435,25 +434,10 @@ def delete():
     flash("User deleted")
     return redirect('/login')
 
-# Configurations for profiler
-app.config["flask_profiler"] = {
-    "enabled": app.config["DEBUG"],
-    "storage": {
-        "engine": "sqlite" # Profiler requires an engine, elasticsearch is not supported but sqlite offers similar functionality
-    },
-    "basicAuth":{
-        "enabled": True,
-        "username": "admin",
-        "password": "admin"
-    },
-    "ignore": [
-	    "^/static/.*"
-	]
-}
-
-# Starts profiler in http://127.0.0.1:5000/flask-profiler/
-# username and password = "admin"
-# flask_profiler.init_app(app) # Disabled for production, can cause some errors due to incorrect engine
+# Profiler loader, results are shown in terminal and prof files are made in profilerFiles
+# Snakeviz can be used as an online GUI for showing profiler results, use command snakeviz fileName.prof
+# from werkzeug.middleware.profiler import ProfilerMiddleware
+# app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[5], profile_dir='profilerFiles')
 
 if __name__ == '__main__':
     # create_table() # Creates table in DB if it does not exist
