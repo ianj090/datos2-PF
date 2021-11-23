@@ -47,11 +47,10 @@ The complete jmeter file, along with all screenshots of the tool's analysis of t
 ### JMeter Test Conclusions:
 * Non-edit routes such as /login, /profile, and /delete perform much better with a cache than without.
 * Edit routes such as /edit and /editbg, that modify cache and the database values directly, perform worse when a cache is available.
-* Though the cache did improve the overall speed of the project, the effect was relatively small. The project could theoretically perform worse if users decide to use the edit routes more often than non-edit routes. As such, implementing a cache isn't necessary for a project of this size, but bigger projects could definetly benefit.
-* Due to the app's structure, utilizing Elasticsearch is the most performant method compared to Caching or pure MySQL. Caching is the second quickest while having both ES and the Cache disabled is the least performant.
+* Utilizing a cache with this project's structure improves the performance by a large margin. Due to this behavior, having Elasticsearch disabled and only using Cache and MySQL is faster than using only Elasticsearch. When cache is disabled though, Elasticsearch is the more performant database compared to MySQL, pure MySQL is the slowest of the three options.
 * In the project, we utilize time.sleep() to handle Logstash's asynchronous nature which ultimately harms the app's performance when Elasticsearch fails but assures the best performance when Elasticsearch is functioning correctly.
 
-These conclusions makes sense as the non-edit routes benefit from the speed of accessing a cache over accessing a database, while edit routes suffer from having additional operations to perform (both cache and database). Elasticsearch is still the quickest method however as the app calls time.sleep() less times when it is enabled.
+These conclusions makes sense as the non-edit routes benefit from the speed of accessing a cache over accessing a database, while edit routes suffer from having additional operations to perform (both cache and database).
 
 <br>
 
@@ -67,7 +66,7 @@ pip install snakeviz # Using version 2.1.1
 
 pip install python-memcached # Using version 1.59
 
-pip install mysql-connector-python # Using version 8.0.27
+pip install PyMySQL # Using version 1.0.2, replaced mysql-connector-python as mysql-connector had a bug when multiple users made multiple MySQL requests.
 
 pip install kafka-python # Using version 2.0.2
 ```
@@ -92,7 +91,7 @@ This project also uses Memcached to store user data in a cache
 ### Logstash Notes
 The folowing code is a snippet of pipelines.yml the file we use as instructions for Logstash so that it knows where to receive input and how to send the collected records to Elasticsearch and MySQL:
 ```yml
-# pipelines.yml
+# pipelines.yml, Output Isolator Pattern
 
 - pipeline.id: Kafka-process
   queue.type: persisted
@@ -154,3 +153,5 @@ The folowing code is a snippet of pipelines.yml the file we use as instructions 
       stdout { codec => json }
     }
 ```
+* This project utilizes the Logstash Output Isolator Pattern for Pipelining, this utilizes more disk space but allows each pipeline to be a separate process. As such, if one pipeline fails, it doesn't affect all the other pipelines, this is useful when simulating Elasticsearch crashing. 
+* The Terminal-Debugger pipeline isn't necessary to run the project, it is only used for debugging purposes.

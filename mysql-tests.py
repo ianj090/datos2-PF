@@ -1,13 +1,13 @@
-import mysql.connector as mysql # used for connecting to MySQL
+import pymysql # used for connecting to MySQL
 
 # Connect to MySQL Database
-db = mysql.connect(
+db = pymysql.connect(
     host = "localhost",
     user = "admin", # Defined when downloading MySQL
     passwd = "Datos2-Password123", # Defined when downloading MySQL
     database = "profiles" # Comment out if db not created yet
 )
-cursor = db.cursor(dictionary=True, buffered=True) # cursor is used to create queries and read returns
+cursor = db.cursor(pymysql.cursors.DictCursor) # cursor is used to create queries and read returns
 
 # Create database, not needed if already created
 # cursor.execute("CREATE DATABASE profiles")
