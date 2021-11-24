@@ -1,4 +1,4 @@
-# Profile Pages Final Project Part 2
+# Profile Pages Final Project Part 3 - Final
 #### David Corzo 20190432, Ian Jenatz 20190014, Anesveth Maatens 20190339
 
 <br>
@@ -40,17 +40,17 @@ Terminal output:
 ![Flask Profiler Example 2](/werkzeug-profiler/Terminal-example.jpg)
 
 ## Jmeter
-The complete jmeter file, along with all screenshots of the tool's analysis of the project both with and without a cache, can be found in the folder titled 'jmeter', to disable the cache for the project, simply change the variable 'cache' to 'False' in the python file ```profiles.py```.
+The complete jmeter file, along with all screenshots of the tool's analysis of the project with 3 different setups (using all technologies, using only Cache and MySQL, and using only MySQL), can be found in the folder titled 'jmeter', to disable the cache for the project, simply change the variable 'cache' to 'False' in the python file ```profiles.py```, to disable Elasticsearch simply close the running service in the appropiate terminal (both nodes), no need to end the Kibana service but all Kibana endpoints fail anyway as ES is down.
 
 <br>
 
 ### JMeter Test Conclusions:
 * Non-edit routes such as /login, /profile, and /delete perform much better with a cache than without.
-* Edit routes such as /edit and /editbg, that modify cache and the database values directly, perform worse when a cache is available.
-* Utilizing a cache with this project's structure improves the performance by a large margin. Due to this behavior, having Elasticsearch disabled and only using Cache and MySQL is faster than using only Elasticsearch. When cache is disabled though, Elasticsearch is the more performant database compared to MySQL, pure MySQL is the slowest of the three options.
-* In the project, we utilize time.sleep() to handle Logstash's asynchronous nature which ultimately harms the app's performance when Elasticsearch fails but assures the best performance when Elasticsearch is functioning correctly.
+* Edit routes such as /edit and /editbg, that modify cache and the database values directly, perform slightly worse when a cache is available.
+* Utilizing a cache with this project's structure improves the performance by a large margin. Due to this behavior, having Elasticsearch disabled and only using Cache and MySQL is faster than using only Elasticsearch. When cache is disabled, MySQL is still faster than Elasticsearch. This makes sense in all endpoints where we search for the user in the DB as we utilize time.sleep() but is also likely due to a less optimized python client compared to the MySQL python client. After all, ES and MySQL records are sent at the same pace but ES still takes longer to get back from the Database.
+* In the project, we utilize time.sleep() to handle Logstash's asynchronous nature which ultimately harms the app's performance when Elasticsearch fails but assures the best performance when Elasticsearch is functioning correctly as without time.sleep() many iterations of a loop would occur constantly.
 
-These conclusions makes sense as the non-edit routes benefit from the speed of accessing a cache over accessing a database, while edit routes suffer from having additional operations to perform (both cache and database).
+These conclusions makes sense as the non-edit routes benefit from the speed of accessing a cache over accessing a database, while edit routes suffer from having additional operations to perform (both cache and database). Elasicsearch technically should be faster than MySQL, but the use of a cache for the latter and the app's synchronous structure mean that Elasticsearch is often slower.
 
 <br>
 
@@ -71,7 +71,7 @@ pip install PyMySQL # Using version 1.0.2, replaced mysql-connector-python as my
 pip install kafka-python # Using version 2.0.2
 ```
 ### Extra Requirements
-This project uses ElasticSearch as a database and Kibana as a metric dashboard. We also utilize Kafka and Logstash, to install and run these, follow these tutorials: 
+This project uses ElasticSearch as a database and Kibana as a metric dashboard. We also utilize Kafka and Logstash to send records to Elasticsearch and MySQL. To install and run these in your own device, follow the following tutorials: 
 * Download ElasticSearch: https://www.elastic.co/downloads/elasticsearch
 * Download Kibana: https://www.elastic.co/downloads/kibana 
 * Download Kafka: https://shaaslam.medium.com/installing-apache-kafka-on-windows-495f6f2fd3c8

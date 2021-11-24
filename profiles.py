@@ -171,7 +171,7 @@ def deleteUser():
     # Deletes from both DBs and Cache
     try:
         if ElasticEnabled == False: raise RuntimeError
-        es.delete_by_query(index="logstash", refresh = 'true', body={"query": {"term": {"username.keyword": {"value": session['username']}}}}) # deletes user from ES
+        test = es.delete(index="logstash", id=session["username"], refresh='wait_for') # deletes user from ES
     except: 
         if DEBUG == True: traceback.print_exc()
     try:
